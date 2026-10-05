@@ -1,4 +1,5 @@
 import pandas as pd
+from scipy.stats import norm
 
 def historical_var(
     returns: pd.Series,
@@ -93,4 +94,40 @@ def historical_expected_shortfall(
         expected_shortfall = expected_shortfall * portfolio_value
 
     return expected_shortfall
+
+
+def parametric_var(
+    returns: pd.Series,
+    confidence_level: float = 0.95,
+    portfolio_value: float |None = None
+) -> float:
+    """Calculate Parametric Value at Risk.
+
+    Args:
+        returns (pd.Series): Historical portfolio returns
+        confidence_level (float, optional): VaR confidence level. Defaults to 0.95.
+        portfolio_value (float | None, optional): Portfolio market value. If provided, VaR is returned in currency
+                units. Otherwise, VaR is returned as a decimal percentage. Defaults to None.
+
+    Returns:
+        float: Parametric VaR expressed as a positive loss.
+    """
+    if not 0 < confidence_level <1.0:
+        raise ValueError ("Confidence Interval Must be between 0 and 1")
     
+    if returns.empty:
+        raise ValueError("Returns cannot be empty.")
+    
+    if portfolio_value is not None and portfolio_value <= 0:
+        raise ValueError("Portfolio_value must be greater than zero.")
+    
+    mu = returns.mean()
+    sigma = returns.std()
+    z_score = norm.ppf(1-confidence_level)
+    
+    var = -(mu +z_score*sigma)
+    
+    if portfolio_value is not None:
+        var = var * portfolio_value
+        
+    return var
