@@ -4,3 +4,5 @@ __pycache__/
 .ipynb_checkpoints/
 .env
 .DS_Store
+
+project_03_credit_risk/data/
