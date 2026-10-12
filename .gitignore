@@ -6,3 +6,7 @@ __pycache__/
 .DS_Store
 
 project_03_credit_risk/data/
+# Temporary notebook export tools
+/.export-venv/
+/pdf_print/
+/exports/
