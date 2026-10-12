@@ -16,8 +16,7 @@ This project applies quantitative risk methods to a fixed-weight, multi-asset ET
 - [Stress testing](#stress-testing)
 - [VaR backtesting and validation](#var-backtesting-and-validation)
 - [Notebook guide](#notebook-guide)
-- [Methodology and implementation details](#methodology-and-implementation-details)
-- [Reproducing the analysis](#reproducing-the-analysis)
+- [Core equations](#core-equations)
 - [Limitations and future extensions](#limitations-and-future-extensions)
 
 ## At a glance
@@ -248,100 +247,40 @@ Run the notebooks in numerical order. Each notebook develops one stage of the an
 | `08_stress_testing.ipynb` | Review severe historical losses; test hypothetical moderate, severe, and extreme scenarios; calculate single-factor and multi-factor sensitivities. |
 | `09_var_backtesting.ipynb` | Create 500-observation rolling VaR forecasts, calculate exception rates, compare them with expected rates, and apply the Kupiec POF test. |
 
-> The names above describe the notebooks' logical sequence. If the files in a checkout include suffixes such as `(4)` or are stored in a nested notebook directory, use the actual local filenames and preserve the execution order.
+## Core equations
 
-## Methodology and implementation details
-
-### Portfolio returns and volatility
-
-For asset weights $w_i$ and daily asset returns $r_{i,t}$, the portfolio return is calculated as:
+### Portfolio return and volatility
 
 $$
 r_{p,t} = \sum_{i=1}^{n} w_i r_{i,t}
 $$
 
-The weights sum to 100% and are held constant for the analysis. Portfolio volatility is calculated from the portfolio return series and cross-checked against the covariance-matrix expression:
-
 $$
-\sigma_p = \sqrt{w^T \Sigma w}
+\sigma_p = \sqrt{w^T \Sigma w}, \qquad \sigma_{annual} = \sigma_{daily}\sqrt{252}
 $$
 
-where $\Sigma$ is the return covariance matrix. Annualized volatility is daily volatility multiplied by $\sqrt{252}$.
+### Value at Risk and Expected Shortfall
 
-### Historical VaR
-
-Historical VaR uses the observed return distribution without fitting a theoretical distribution. At confidence level $c$, the lower-tail empirical return quantile at probability $1-c$ is multiplied by -1 to report VaR as a positive loss magnitude.
-
-### Parametric VaR
-
-Parametric VaR assumes normally distributed portfolio returns and uses the estimated daily mean and volatility:
+Let $r_p$ denote one-day portfolio return and $L=-r_p$ the corresponding loss. At confidence level $c$:
 
 $$
-\operatorname{VaR}_c = -\left(\mu_p + z_{1-c}\sigma_p\right)
+\operatorname{VaR}^{historical}_c = -Q_{1-c}(r_p)
 $$
 
-where $z_{1-c}$ is the standard-normal lower-tail quantile. This method is straightforward and interpretable, but its tail estimates depend on the normality assumption.
+$$
+\operatorname{VaR}^{parametric}_c = -\left(\mu_p + z_{1-c}\sigma_p\right)
+$$
 
-### Monte Carlo VaR and Expected Shortfall
-
-The principal Monte Carlo notebook estimates the historical asset-return mean vector and covariance matrix, generates **100,000** correlated multivariate-normal scenarios using a Cholesky decomposition, converts simulated asset returns into portfolio returns, and obtains VaR from the simulated lower tail. Monte Carlo ES averages simulated losses beyond the corresponding VaR threshold. Because shocks are normal in this implementation, Monte Carlo VaR is not a fat-tailed model; changing the simulation framework to alternative distributions is a potential extension.
+$$
+\operatorname{ES}_c = \mathbb{E}[L \mid L \geq \operatorname{VaR}_c]
+$$
 
 ### Risk attribution
 
-Marginal VaR estimates sensitivity of portfolio VaR to an incremental change in an asset weight. Component VaR multiplies Marginal VaR by the asset weight. Percentage VaR contribution divides each asset's Component VaR by total portfolio VaR. The implementation verifies that Component VaR contributions sum to total VaR at both 95% and 99% confidence, consistent with the Euler decomposition used in the notebook.
-
-### Stress testing
-
-Historical stress testing reuses asset returns from the largest realized portfolio-loss days. Hypothetical and multi-factor stress tests apply explicit asset-level shocks and aggregate them using the portfolio weights. Single-factor sensitivity holds all other asset returns at zero to isolate one position's direct effect.
-
-### Backtesting
-
-For each evaluation date, the notebook estimates the three VaR measures from the immediately preceding 500 observations and checks whether the next realized loss exceeds each threshold. The Kupiec POF test evaluates whether the observed exception count is consistent with the expected tail probability under the stated VaR confidence level.
-
-## Reproducing the analysis
-
-### 1. Set up a Python environment
-
-This project is one of four projects in the larger **Risk Portfolio** repository. The shared `requirements.txt` file lives in the repository's main folder, one level above this project's folder. Use that file as the source of truth for dependencies so the README does not duplicate or drift from the repository's environment specification.
-
-Run the following commands from this Project 01 folder:
-
-```bash
-python -m venv .venv
-```
-
-Activate the environment:
-
-```bash
-# macOS / Linux
-source .venv/bin/activate
-
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
-```
-
-Install dependencies from the shared requirements file in the parent directory:
-
-```bash
-python -m pip install --upgrade pip
-python -m pip install -r ../requirements.txt
-```
-
-> The relative path `../requirements.txt` assumes this project folder is directly inside the `Risk Portfolio` repository root. If you move the project to a different location or change the folder structure, update the path accordingly.
-
-### 2. Open the project in Jupyter
-
-Launch Jupyter from this Project 01 folder so the notebooks' relative paths resolve as expected:
-
-```bash
-jupyter lab
-```
-
-Open the notebooks in the order listed in the [notebook guide](#notebook-guide). They import project helper functions from `project_01_market_risk_engine.src.data` and `project_01_market_risk_engine.src.var`; preserve the package directory and the working-directory assumptions used in the notebook path setup. The market-data cells download price history, so a fresh run requires network access and may produce slightly different values if the data provider revises historical data.
-
-### 3. Review the outputs
-
-The tables and figures embedded in each notebook are the detailed record of the calculations. The figures linked in this README are provided under `results/figures/` so they render directly when this README and its figure directory are placed at the project root.
+$$
+\operatorname{ComponentVaR}_i = w_i\operatorname{MarginalVaR}_i, \qquad
+\operatorname{VaRContribution}_i = \frac{\operatorname{ComponentVaR}_i}{\operatorname{VaR}_p}
+$$
 
 ## Limitations and future extensions
 

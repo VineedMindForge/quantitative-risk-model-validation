@@ -16,7 +16,7 @@ The project evaluates one-day-ahead volatility forecasts using a chronological o
 - [Performance across volatility regimes](#performance-across-volatility-regimes)
 - [Statistical comparison and recommendation](#statistical-comparison-and-recommendation)
 - [Notebook guide](#notebook-guide)
-- [Methodology and implementation details](#methodology-and-implementation-details)
+- [Core equations](#core-equations)
 - [Limitations and future extensions](#limitations-and-future-extensions)
 
 ## At a glance
@@ -209,31 +209,23 @@ The three notebooks form a sequential workflow: design the experiment, estimate 
 | `02_garch_challenger.ipynb` | Estimates the GARCH(1,1) challenger, generates aligned one-day-ahead forecasts, examines the April 2025 episode, tests standardized residuals for autocorrelation and remaining ARCH effects, and checks parameter validity. |
 | `03_out_of_sample_validation.ipynb` | Scores the models using MSE and QLIKE, compares calm and high-volatility regimes, runs HAC-based pairwise tests with Holm adjustment, checks HAC-lag sensitivity, and presents the final model recommendation. |
 
-## Methodology and implementation details
+## Core equations
 
 ### Rolling variance
 
-The rolling benchmark estimates variance from the previous 60 daily returns, with equal weight given to each observation:
+The rolling forecast uses the previous 60 daily returns, ending at $t-1$:
 
 $$
 \hat{\sigma}^{2}_{t\mid t-1} = \operatorname{Var}(r_{t-60}, \ldots, r_{t-1})
 $$
 
-The window is shifted so that the return on forecast date $t$ is not used to generate that date's forecast.
-
 ### EWMA variance
-
-EWMA gives greater weight to recent squared returns through exponentially declining weights. The recurrence used for one-day-ahead forecasting is:
 
 $$
 \hat{\sigma}^{2}_{t\mid t-1} = \lambda\hat{\sigma}^{2}_{t-1\mid t-2} + (1-\lambda)r_{t-1}^{2}, \qquad \lambda = 0.94
 $$
 
-The decay factor is held fixed for this experiment rather than tuned on the test period.
-
 ### GARCH(1,1)
-
-The GARCH specification models returns and conditional variance as:
 
 $$
 r_t = \mu + \epsilon_t, \qquad \epsilon_t = \sigma_t z_t
@@ -243,9 +235,7 @@ $$
 \sigma_t^2 = \omega + \alpha_1\epsilon_{t-1}^2 + \beta_1\sigma_{t-1}^2
 $$
 
-The baseline assumes conditionally normal innovations. Parameters are estimated by maximum likelihood on the development sample. The estimated persistence is $\alpha_1 + \beta_1 = 0.9739$, below one but close to it.
-
-### Forecast scoring
+### Forecast loss functions
 
 Squared daily returns are used as a proxy for daily variance. For forecast variance $\hat{\sigma}_t^2$:
 
@@ -256,12 +246,6 @@ $$
 $$
 \mathrm{QLIKE} = \frac{1}{T}\sum_{t=1}^{T}\left[\log(\hat{\sigma}_t^2)+\frac{r_t^2}{\hat{\sigma}_t^2}\right]
 $$
-
-MSE heavily penalizes large errors, so extreme market moves can dominate the score. QLIKE offers a complementary loss function, and its model ranking can differ from MSE. A lower average loss alone does not establish a statistically significant performance difference.
-
-### Statistical comparison
-
-The notebook compares pairwise loss series with a HAC-based asymptotic test using a Newey–West long-run variance estimate. Five lags are used for the primary comparison, and Holm adjustment is applied within each loss metric. Tests are repeated with 5, 10, and 20 HAC lags as a sensitivity check. Because the implementation uses an asymptotic normal approximation and volatility loss series can be influenced by extreme observations, the results are interpreted cautiously.
 
 ## Limitations and future extensions
 

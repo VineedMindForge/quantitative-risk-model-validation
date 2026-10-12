@@ -18,8 +18,7 @@ The project builds an end-to-end workflow: retrieve and validate an option chain
 - [Portfolio construction and risk](#portfolio-construction-and-risk)
 - [Stress testing and full revaluation](#stress-testing-and-full-revaluation)
 - [Notebook guide](#notebook-guide)
-- [Methodology and implementation details](#methodology-and-implementation-details)
-- [Reproducing the analysis](#reproducing-the-analysis)
+- [Core equations](#core-equations)
 - [Limitations and future extensions](#limitations-and-future-extensions)
 
 ## At a glance
@@ -40,15 +39,13 @@ The project builds an end-to-end workflow: retrieve and validate an option chain
 
 The spot price in the saved notebook outputs is approximately **$774.89**. These figures describe the saved notebook snapshot, not a live quote. Re-running the first notebook retrieves fresh market data, so prices, expiration selection, model errors, and stress results can change.
 
-The dependency file is shared across all four projects and lives in the parent `quantitative-risk-model-validation/` directory. This README documents Project 02 only; it does not replace the main repository documentation.
-
 ## Market data and option universe
 
 ### Data collection and preparation
 
 Notebook 01 retrieves SPY option-chain data through `yfinance`. It selects the expiration nearest a target of 45 calendar days, retrieves calls and puts for that expiration, and combines them into a common contract table.
 
-The cleaned dataset contains **256 contracts** across calls and puts and is saved to `results/csv/spy_option_chain_clean.csv` for downstream notebooks. The saved snapshot contains 129 calls and 127 puts. The data-preparation notebook derives the following fields:
+The cleaned dataset contains **256 contracts** across calls and puts and is used by the downstream notebooks. The saved snapshot contains 129 calls and 127 puts. The data-preparation notebook derives the following fields:
 
 - **Mid-price:** the midpoint of the displayed bid and ask, used as the primary market-price estimate.
 - **Time to maturity:** calendar days to expiration divided by 365.
@@ -279,41 +276,22 @@ Run the notebooks in numeric order so that the cleaned option-chain dataset is c
 
 | Notebook | Purpose | Main output |
 |---|---|---|
-| `01_options_and_market_data.ipynb` | Retrieve and validate the SPY option chain; derive mid-price, maturity, moneyness, intrinsic value, and time value; inspect price and IV patterns | `results/csv/spy_option_chain_clean.csv` and market-data plots |
+| `01_options_and_market_data.ipynb` | Retrieve and validate the SPY option chain; derive mid-price, maturity, moneyness, intrinsic value, and time value; inspect price and IV patterns | Cleaned option-chain data and market-data plots |
 | `02_black_scholes_pricing.ipynb` | Implement Black-Scholes call and put pricing; compare theoretical prices against observed midpoints; summarize pricing errors | Model prices and pricing-error statistics |
 | `03_greeks_sensitivity_analysis.ipynb` | Calculate Delta, Gamma, Vega, Theta, and Rho; analyze Greek profiles and price sensitivity to spot, volatility, and maturity | Greek table and sensitivity plots |
 | `04_implied_volatility_volatility_smile.ipynb` | Invert market option prices with Brent's method; compare calculated IV with provider IV; analyze smile/skew | Calculated IV estimates, solver diagnostics, and IV chart |
 | `05_options_portfolio_risk_stress_testing.ipynb` | Define a long/short option portfolio; aggregate Greeks; run individual and combined stress scenarios; compare approximation with full revaluation | Portfolio exposures, scenario matrices, P&L curves, and approximation-error metrics |
 
-## Methodology and implementation details
-
-### Mid-price and moneyness
-
-The option midpoint and moneyness are defined as:
-
-$$
-P_{mid} = \frac{Bid + Ask}{2}
-$$
-
-$$
-Moneyness = \frac{K}{S}
-$$
-
-where $K$ is strike price and $S$ is the current underlying price. Moneyness below 1 means the strike is below spot; moneyness above 1 means the strike is above spot.
+## Core equations
 
 ### Black-Scholes pricing
 
-The model calculates:
+For European-style options with continuous dividend yield $q$:
 
 $$
-d_1 = \frac{\ln(S/K) + (r-q+\frac{1}{2}\sigma^2)T}{\sigma\sqrt{T}}
-$$
-
-$$
+d_1 = \frac{\ln(S/K) + (r-q+\frac{1}{2}\sigma^2)T}{\sigma\sqrt{T}}, \qquad
 d_2 = d_1 - \sigma\sqrt{T}
 $$
-
-The European call and put prices are:
 
 $$
 C = S e^{-qT}N(d_1) - K e^{-rT}N(d_2)
@@ -323,31 +301,18 @@ $$
 P = K e^{-rT}N(-d_2) - S e^{-qT}N(-d_1)
 $$
 
-where $N(\cdot)$ is the cumulative distribution function of the standard normal distribution. The baseline pricing comparison uses one fixed volatility of 20%; the implied-volatility notebook instead solves for volatility from each usable market price.
+### Option Greeks
 
-### Greek calculations
-
-The implementation derives the Greeks from the same Black-Scholes inputs. Here, $N(d)$ is the standard-normal cumulative distribution function and $N'(d)$ is its probability density function.
-
-For calls and puts, Delta is:
+Let $N(\cdot)$ be the standard-normal cumulative distribution function and $N'(\cdot)$ its density.
 
 $$
 \Delta_{call}=e^{-qT}N(d_1), \qquad \Delta_{put}=e^{-qT}[N(d_1)-1]
 $$
 
-Gamma and Vega are:
-
 $$
-\Gamma=\frac{e^{-qT}N'(d_1)}{S\sigma\sqrt{T}}
-$$
-
-$$
+\Gamma=\frac{e^{-qT}N'(d_1)}{S\sigma\sqrt{T}}, \qquad
 Vega=S e^{-qT}N'(d_1)\sqrt{T}
 $$
-
-The implementation expresses Vega for a 1.00 change in volatility; for a one-percentage-point shock, the first-order approximation is $\Delta V \approx Vega \times 0.01$.
-
-Theta is expressed per year in the notebook:
 
 $$
 \Theta_{call}=-\frac{S e^{-qT}N'(d_1)\sigma}{2\sqrt{T}}-rKe^{-rT}N(d_2)+qSe^{-qT}N(d_1)
@@ -357,48 +322,21 @@ $$
 \Theta_{put}=-\frac{S e^{-qT}N'(d_1)\sigma}{2\sqrt{T}}+rKe^{-rT}N(-d_2)-qSe^{-qT}N(-d_1)
 $$
 
-Rho is:
-
 $$
 Rho_{call}=KTe^{-rT}N(d_2), \qquad Rho_{put}=-KTe^{-rT}N(-d_2)
 $$
 
-### Greek-based portfolio P&L
+The implementation reports Vega for a 1.00 change in volatility; a one-percentage-point volatility shock is approximately $Vega\times0.01$. Theta is expressed per year.
 
-The second-order approximation for underlying-price shocks is:
+### Greek-based portfolio P&L approximation
 
 $$
 \Delta P\&L \approx \Delta_{portfolio}\Delta S + \frac{1}{2}\Gamma_{portfolio}(\Delta S)^2
 $$
 
-A first-order volatility contribution is then added for combined price/volatility scenarios:
-
 $$
 \Delta P\&L \approx \Delta_{portfolio}\Delta S + \frac{1}{2}\Gamma_{portfolio}(\Delta S)^2 + Vega_{portfolio}\Delta\sigma
 $$
-
-This approximation omits higher-order Greeks and does not fully capture the nonlinear response of each option when the underlying price or volatility changes significantly. Full revaluation directly reprices each position under the scenario inputs.
-
-## Reproducing the analysis
-
-The shared `requirements.txt` is located in the parent repository directory, one level above `project_02_derivatives_risk_engine`.
-
-From the `project_02_derivatives_risk_engine` directory, install the repository's shared dependencies:
-
-```bash
-python -m pip install -r ../requirements.txt
-```
-
-Then launch Jupyter from the `notebooks` directory so the relative paths used to read and write project data resolve correctly:
-
-```bash
-cd notebooks
-jupyter lab
-```
-
-Run the notebooks in order from `01` through `05`. Notebook 01 creates `../results/csv/spy_option_chain_clean.csv`; the downstream notebooks use that saved dataset. In VS Code, set the notebook working directory to `project_02_derivatives_risk_engine/notebooks` if the relative data paths or source imports do not resolve.
-
-The charts embedded in this README are extracted from the saved notebook outputs. Rerunning the notebooks may update market data and figures, so the reported numbers should be refreshed if the results are regenerated.
 
 ## Limitations and future extensions
 

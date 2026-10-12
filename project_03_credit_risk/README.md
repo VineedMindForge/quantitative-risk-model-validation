@@ -11,14 +11,11 @@ The project follows a five-notebook workflow using LendingClub loan-performance 
 - [At a glance](#at-a-glance)
 - [Data and target definition](#data-and-target-definition)
 - [Workflow](#workflow)
-- [Key results](#key-results)
 - [PD model and validation](#pd-model-and-validation)
 - [LGD and EAD methodology](#lgd-and-ead-methodology)
 - [Expected loss and portfolio segmentation](#expected-loss-and-portfolio-segmentation)
 - [Stress testing](#stress-testing)
 - [Notebook guide](#notebook-guide)
-- [Methodology and implementation details](#methodology-and-implementation-details)
-- [Reproducing the analysis](#reproducing-the-analysis)
 - [Limitations and future extensions](#limitations-and-future-extensions)
 
 ## At a glance
@@ -88,7 +85,23 @@ flowchart TD
     J --> K[Stress PD and recalculate expected loss]
 ```
 
-## Key results
+## PD model and validation
+
+### Model specification
+
+The baseline Probability of Default model uses L2-regularized logistic regression (`C=1.0`). For loan $i$, the linear predictor and predicted probability are:
+
+$$
+z_i = \beta_0 + \sum_{j=1}^{p} \beta_j X_{ij}
+$$
+
+$$
+PD_i = \frac{1}{1 + e^{-z_i}}
+$$
+
+The ten predictors are `loan_amnt`, `int_rate`, `annual_inc`, `dti`, `fico_avg`, `loan_to_income`, `grade`, `emp_length`, `home_ownership`, and `purpose`. Numerical predictors are imputed using development-sample medians and standardized; categorical predictors are imputed using the development-sample most frequent category and one-hot encoded. Preprocessing is fitted within the model pipeline using development data only.
+
+Post-outcome fields such as `recoveries` and `loan_status` are excluded to avoid target leakage. `issue_d` is used for the chronological split, not as a direct predictor. The baseline uses no hyperparameter tuning.
 
 ### PD model performance on the validation sample
 
@@ -209,7 +222,7 @@ Under moderate stress, the expected loss increases by approximately **$550 milli
 
 ## Notebook guide
 
-Run the notebooks in numerical order. The later notebooks consume CSV outputs written by earlier steps under `data/processed/`.
+Run the notebooks in numerical order; later notebooks consume outputs produced by earlier steps.
 
 | Notebook | Purpose and main outputs |
 |---|---|
@@ -218,108 +231,6 @@ Run the notebooks in numerical order. The later notebooks consume CSV outputs wr
 | `03_lgd_ead_estimation.ipynb` | Review recovery information; define assumption-based LGD by grade and an EAD proxy from `funded_amnt`; calculate and export loan-level expected loss inputs and results. |
 | `04_expected_loss.ipynb` | Reconcile loan-level expected loss; calculate portfolio summaries; rank largest individual EL contributors; segment EL by credit grade, purpose, PD risk band and income; run reconciliation checks. |
 | `05_portfolio_credit_risk_stress_testing.ipynb` | Summarize the development portfolio risk profile; compare base, moderate and severe PD stress scenarios; calculate incremental expected loss. |
-
-## Methodology and implementation details
-
-### Logistic regression for PD
-
-The baseline PD model defines the linear predictor as:
-
-$$
-z_i = \beta_0 + \sum_{j=1}^{p} \beta_j X_{ij}
-$$
-
-and transforms it to a probability using the logistic function:
-
-$$
-PD_i = \frac{1}{1 + e^{-z_i}}
-$$
-
-The implementation uses an L2-regularized scikit-learn logistic regression with `C=1.0`. Numerical predictors are imputed using the development-sample median and standardized; categorical predictors are imputed using the development-sample most frequent category and one-hot encoded. The preprocessing is included in the pipeline so that validation data does not determine imputation, scaling, or category encoding. The model uses ten predictors: `loan_amnt`, `int_rate`, `annual_inc`, `dti`, `fico_avg`, `loan_to_income`, `grade`, `emp_length`, `home_ownership`, and `purpose`.
-
-Post-outcome fields such as `recoveries` and `loan_status` are excluded from predictors to avoid target leakage. `issue_d` is used for the chronological split rather than as a direct predictor. The baseline uses no hyperparameter tuning.
-
-### PD validation measures
-
-The model is assessed with ROC-AUC, KS and Gini for discrimination, and mean predicted PD versus observed event frequency for calibration. These are distinct dimensions: good ranking performance does not guarantee calibrated probabilities. The current positive calibration gaps indicate underprediction on the validation sample, and any recalibration should be fitted on a distinct calibration subset before being evaluated on an untouched sample.
-
-### Expected loss aggregation
-
-For loan $i$, the model computes:
-
-$$
-EL_i = PD_i \times LGD_i \times EAD_i
-$$
-
-Total portfolio expected loss is $\sum_i EL_i$, and the expected-loss rate is:
-
-$$
-EL\ Rate = \frac{\sum_i EL_i}{\sum_i EAD_i}
-$$
-
-This rate is EAD-weighted. The separately reported arithmetic-average PD and LGD are descriptive metrics and should not be multiplied together to reproduce the total portfolio EL rate.
-
-## Reproducing the analysis
-
-### 1. Confirm the repository layout
-
-This project is one of four projects in the `quantitative-risk-model-validation` repository. The shared `requirements.txt` is in the repository root, one level above `project_03_credit_risk/`. The source dataset is expected at `project_03_credit_risk/data/raw/Loan_status_2007-2020Q3.gzip`; it is not included in this README bundle.
-
-Expected structure:
-
-```text
-quantitative-risk-model-validation/
-├── requirements.txt
-├── project_03_credit_risk/
-│   ├── data/
-│   │   ├── raw/
-│   │   │   └── Loan_status_2007-2020Q3.gzip  # obtain separately
-│   │   └── processed/                        # generated by notebooks
-│   ├── notebooks/
-│   │   ├── 01_data_preparation.ipynb
-│   │   ├── 02_probability_of_default_model.ipynb
-│   │   ├── 03_lgd_ead_estimation.ipynb
-│   │   ├── 04_expected_loss.ipynb
-│   │   └── 05_portfolio_credit_risk_stress_testing.ipynb
-│   ├── results/
-│   │   └── figures/
-│   └── README.md
-└── .venv/  # shared environment, if used in your checkout
-```
-
-The notebook paths assume the project layout above. If the source data or notebook directories are moved, update the relative paths accordingly.
-
-### 2. Install dependencies
-
-From the repository root, activate the existing shared environment and install the shared dependencies:
-
-```bash
-# Windows PowerShell
-.\.venv\Scripts\Activate.ps1
-
-# macOS / Linux
-source .venv/bin/activate
-
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-```
-
-The shared dependency file is the source of truth; this README intentionally does not maintain a second project-specific dependency list.
-
-### 3. Run the notebooks
-
-The notebook code uses paths such as `../data/raw` and `../data/processed`. To preserve those relative paths, launch Jupyter from the `notebooks` directory:
-
-```bash
-cd project_03_credit_risk/notebooks
-jupyter lab
-```
-
-Run notebooks 01 through 05 in sequence. Notebook 01 creates the processed development and validation files; Notebook 02 writes the PD predictions; Notebook 03 writes loan-level expected-loss datasets; Notebook 04 consumes them for portfolio analysis; Notebook 05 uses the development expected-loss output for stress testing. A fresh run of Notebook 01 requires the LendingClub source file in the expected `data/raw/` location.
-
-### 4. Review generated outputs
-
-The notebook workflow writes CSV files beneath `data/processed/`. The figures linked in this README are stored in `results/figures/`; the ROC and PD risk-band charts are extracted from the saved Notebook 02 outputs, while the other figures in this README are supplemental charts recreated from numeric results recorded in the notebooks.
 
 ## Limitations and future extensions
 
