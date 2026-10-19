@@ -1,6 +1,6 @@
 # Quantitative Risk & Model Validation Portfolio
 
-A collection of four Python-based projects exploring **market risk, derivatives pricing, credit risk, and volatility-model validation**. Each project moves from data preparation and quantitative implementation to interpretation of results, diagnostics, stress testing, and explicit discussion of model limitations.
+A collection of five Python-based projects exploring **market risk, derivatives pricing, credit risk, volatility-model validation, and portfolio risk-versus-return analysis**. Each project moves from data preparation and quantitative implementation to interpretation of results, diagnostics, stress testing, and explicit discussion of model limitations.
 
 > **Scope:** These are research and portfolio projects designed to demonstrate quantitative-risk methods and model assessment. They are not production risk systems, independently approved models, investment recommendations, or credit-decision tools.
 
@@ -62,6 +62,20 @@ Compares rolling 60-day variance and EWMA forecasts with a GARCH(1,1) challenger
 
 ---
 
+### 05 — Risk vs. Return and Portfolio Optimization
+
+**Focus:** Understanding the relationship between portfolio return, volatility, and risk-adjusted performance.
+
+Compares the growth and return distributions of illustrative investments with different volatility levels, then analyzes historical daily returns for AAPL, MSFT, and AMZN. The project explores the feasible portfolio set and compares allocations optimized for maximum return, minimum variance, maximum Sharpe ratio, maximum Sortino ratio, and maximum Treynor ratio.
+
+**Methods demonstrated:** Annualized return and volatility calculations, portfolio covariance, random portfolio simulation, efficient-frontier visualization, Sharpe and Sortino ratio optimization, and comparison of optimized allocations.
+
+**Interpretation note:** Portfolio optimization results depend on the selected assets, sample period, return estimates, covariance estimates, and objective function. Historical estimates and optimized weights are illustrative and should not be interpreted as guaranteed future performance or investment advice.
+
+[Read the Project 05 README](project_05_risk_vs_return/README.md)
+
+---
+
 ## Capabilities demonstrated across the portfolio
 
 - **Data preparation and validation:** data-quality checks, feature construction, return calculations, and chronological sample design.
@@ -72,7 +86,7 @@ Compares rolling 60-day variance and EWMA forecasts with a GARCH(1,1) challenger
 
 ## How the projects fit together
 
-The four projects examine related but distinct risk questions:
+The five projects examine related but distinct risk questions:
 
 | Risk question | Project |
 |---|---|
@@ -80,6 +94,7 @@ The four projects examine related but distinct risk questions:
 | How do option values and portfolio risk change as market inputs move? | **02 — Derivatives Risk Engine** |
 | How can borrower-level PD, LGD, and EAD assumptions be combined into portfolio expected loss? | **03 — Credit Risk** |
 | Which volatility forecast performs best out of sample, and is the performance difference statistically persuasive? | **04 — Volatility Model Validation** |
+| How do portfolio weights affect return, volatility, and risk-adjusted performance? | **05 — Risk vs. Return and Portfolio Optimization** |
 
 Together, they demonstrate an end-to-end perspective on quantitative risk: constructing inputs, implementing models, measuring risk, testing behavior under stress or out of sample, and distinguishing numerical results from evidence of model validity.
 
