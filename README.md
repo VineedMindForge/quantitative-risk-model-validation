@@ -1,6 +1,6 @@
 # Quantitative Risk & Model Validation Portfolio
 
-A collection of five Python-based projects exploring **market risk, derivatives pricing, credit risk, volatility-model validation, and portfolio risk-versus-return analysis**. Each project moves from data preparation and quantitative implementation to interpretation of results, diagnostics, stress testing, and explicit discussion of model limitations.
+A collection of Python-based projects exploring **market risk, derivatives pricing, credit risk, volatility-model validation, and portfolio risk-versus-return analysis**. Each project moves from data preparation and quantitative implementation to interpretation of results, diagnostics, stress testing, and explicit discussion of model limitations.
 
 > **Scope:** These are research and portfolio projects designed to demonstrate quantitative-risk methods and model assessment. They are not production risk systems, independently approved models, investment recommendations, or credit-decision tools.
 
